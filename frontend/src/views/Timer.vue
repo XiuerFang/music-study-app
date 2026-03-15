@@ -1,44 +1,81 @@
 <template>
   <div class="timer-page">
-    <!-- Current Task Display -->
-    <div class="current-task-card" v-if="currentTask">
-      <div class="task-badge">当前任务</div>
-      <div class="task-name">{{ currentTask.name }}</div>
-      <div class="task-info">
-        <span class="tag">{{ categoryNames[currentTask.category] }}</span>
-        <span class="progress-text">{{ currentTask.completedPomodoros || 0 }}/{{ currentTask.estimatedPomodoros }} 番茄</span>
+    <!-- Header -->
+    <div class="page-header">
+      <div class="date-display">{{ currentDate }}</div>
+      <div class="greeting">{{ greeting }}</div>
+    </div>
+
+    <!-- Task Card -->
+    <div class="task-card" v-if="currentTask" @click="showTaskPicker = true">
+      <div class="task-card-header">
+        <span class="task-badge">当前任务</span>
+        <span class="task-category">{{ categoryNames[currentTask.category] }}</span>
+      </div>
+      <div class="task-card-title">{{ currentTask.name }}</div>
+      <div class="task-card-footer">
+        <div class="pomodoro-progress">
+          <span class="current">{{ currentTask.completedPomodoros || 0 }}</span>
+          <span class="separator">/</span>
+          <span class="total">{{ currentTask.estimatedPomodoros }}</span>
+          <span class="unit">番茄</span>
+        </div>
+        <van-button size="small" type="primary" round plain>切换</van-button>
       </div>
       <van-progress 
         :percentage="getProgress(currentTask)" 
-        :stroke-width="6" 
+        :stroke-width="4" 
         :show-pivot="false"
-        color="#6366f1"
-        track-color="#334155"
+        color="linear-gradient(90deg, #5B8FF9, #14C4E4)"
+        track-color="#E8F0FE"
       />
     </div>
 
-    <!-- Task Selector -->
-    <div class="task-selector" v-if="!currentTask">
-      <van-cell-group inset>
-        <van-cell title="选择任务开始学习" is-link @click="showTaskPicker = true">
-          <template #label>
-            <span class="hint-text">选择一个任务来计时</span>
-          </template>
-        </van-cell>
-      </van-cell-group>
+    <!-- No Task State -->
+    <div class="no-task-card" v-else @click="showTaskPicker = true">
+      <div class="no-task-icon">🎯</div>
+      <div class="no-task-text">选择一个任务开始学习</div>
+      <van-button type="primary" round size="small">选择任务</van-button>
     </div>
 
     <!-- Timer -->
-    <div class="timer-wrapper">
-      <div class="timer-circle" :style="{ '--progress': progress + '%' }">
-        <div class="timer-inner">
+    <div class="timer-section">
+      <div class="timer-ring" :class="{ 'is-rest': isRest }">
+        <svg class="progress-ring" viewBox="0 0 200 200">
+          <circle 
+            class="progress-ring-bg"
+            cx="100" cy="100" r="90"
+            fill="none"
+            stroke="#E8F0FE"
+            stroke-width="8"
+          />
+          <circle 
+            class="progress-ring-progress"
+            cx="100" cy="100" r="90"
+            fill="none"
+            :stroke="isRest ? '#6DD400' : 'url(#progressGradient)'"
+            stroke-width="8"
+            stroke-linecap="round"
+            :stroke-dasharray="circumference"
+            :stroke-dashoffset="progressOffset"
+            transform="rotate(-90 100 100)"
+          />
+          <defs>
+            <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#5B8FF9" />
+              <stop offset="100%" stop-color="#14C4E4" />
+            </linearGradient>
+          </defs>
+        </svg>
+        
+        <div class="timer-content">
           <div class="timer-time">{{ timeDisplay }}</div>
           <div class="timer-label">
-            <van-tag :type="isRest ? 'success' : 'primary'">
+            <van-tag :type="isRest ? 'success' : 'primary'" size="medium" round>
               {{ timerLabel }}
             </van-tag>
           </div>
-          <div class="pomodoro-count" v-if="currentPomodoro > 0">
+          <div class="pomodoro-badge" v-if="currentPomodoro > 0">
             🍅 {{ currentPomodoro }} 个番茄
           </div>
         </div>
@@ -54,110 +91,105 @@
         round
         :disabled="!currentTask && !isRest"
         @click="startTimer"
+        class="control-btn start-btn"
       >
-        <van-icon name="play-circle-o" size="20" />
-        {{ isPaused ? '继续' : '开始' }}
+        <van-icon name="play" size="24" />
+        {{ isPaused ? '继续' : '开始学习' }}
       </van-button>
+      
       <van-button 
         v-else 
-        type="warning" 
+        type="default" 
         size="large" 
         round
         @click="pauseTimer"
+        class="control-btn pause-btn"
       >
-        <van-icon name="pause-circle-o" size="20" />
+        <van-icon name="pause" size="24" />
         暂停
       </van-button>
-      <van-button 
-        size="large" 
-        round
-        plain
-        @click="resetTimer"
-        :disabled="!isRunning && !isPaused && timeLeft === defaultTime"
-      >
-        <van-icon name="replay" size="18" />
-        重置
-      </van-button>
-    </div>
 
-    <!-- Quick Task Switch -->
-    <div class="quick-actions" v-if="currentTask">
-      <van-button size="small" plain type="primary" @click="showTaskPicker = true">
-        切换任务
-      </van-button>
-      <van-button size="small" plain type="danger" @click="clearCurrentTask">
-        结束任务
-      </van-button>
+      <div class="secondary-btns">
+        <van-button 
+          round 
+          plain 
+          size="large"
+          :disabled="!isRunning && !isPaused && timeLeft === defaultTime"
+          @click="resetTimer"
+        >
+          <van-icon name="replay" /> 重置
+        </van-button>
+      </div>
     </div>
 
     <!-- Settings Card -->
-    <van-cell-group inset class="settings-card">
-      <van-cell title="工作时长" :value="settings.workDuration + '分钟'" />
-      <van-cell title="短休息" :value="settings.shortBreak + '分钟'" />
-      <van-cell title="长休息" :value="settings.longBreak + '分钟'" />
-    </van-cell-group>
+    <div class="settings-card">
+      <van-cell-group inset>
+        <van-cell title="工作时长" :value="settings.workDuration + ' 分钟'" is-link @click="showSettings = true" />
+        <van-cell title="今日完成" :value="todayPomodoros + ' 番茄'" />
+      </van-cell-group>
+    </div>
 
     <!-- Rest Popup -->
-    <van-popup v-model:show="showRest" position="bottom" :close-on-click-overlay="false">
+    <van-popup v-model:show="showRest" position="bottom" :close-on-click-overlay="false" round>
       <div class="rest-popup">
         <div class="rest-header">
-          <span class="rest-icon">☕</span>
-          <span class="rest-title">休息一下</span>
+          <span class="rest-emoji">☕</span>
+          <div class="rest-title">休息一下吧</div>
+          <div class="rest-subtitle">让大脑放松一下</div>
         </div>
         
-        <div class="rest-timer">{{ timeDisplay }}</div>
-        
-        <div class="rest-tips">
-          <span>眼睛休息一下</span>
-          <span>喝点水</span>
-          <span>站起来活动</span>
+        <div class="rest-timer-display">{{ timeDisplay }}</div>
+
+        <div class="rest-activities">
+          <div class="activity-item" @click="skipRest">
+            <span class="activity-icon">🚶</span>
+            <span class="activity-name">走动一下</span>
+          </div>
+          <div class="activity-item" @click="skipRest">
+            <span class="activity-icon">💧</span>
+            <span class="activity-name">喝水</span>
+          </div>
+          <div class="activity-item" @click="skipRest">
+            <span class="activity-icon">👀</span>
+            <span class="activity-name">远眺</span>
+          </div>
+          <div class="activity-item" @click="skipRest">
+            <span class="activity-icon">🧘</span>
+            <span class="activity-name">放松</span>
+          </div>
         </div>
 
-        <div class="rest-games">
-          <div class="game-btn" @click="openGame('2048')">
-            <span class="game-icon">🎮</span>
-            <span>2048</span>
-          </div>
-          <div class="game-btn" @click="openGame('snake')">
-            <span class="game-icon">🐍</span>
-            <span>贪吃蛇</span>
-          </div>
-        </div>
-
-        <van-button type="primary" block round @click="skipRest">
+        <van-button type="primary" block round size="large" @click="skipRest">
           跳过休息
         </van-button>
       </div>
     </van-popup>
 
     <!-- Task Picker -->
-    <van-popup v-model:show="showTaskPicker" position="bottom">
+    <van-popup v-model:show="showTaskPicker" position="bottom" round>
       <div class="task-picker">
         <div class="picker-header">
-          <span>选择任务</span>
-          <van-button size="small" type="primary" @click="goCreateTask">新建任务</van-button>
+          <span class="picker-title">选择学习任务</span>
+          <van-button size="small" type="primary" round @click="goCreateTask">新建</van-button>
         </div>
-        <van-radio-group v-model="selectedTaskId">
-          <van-cell-group>
-            <van-cell 
-              v-for="task in tasks" 
-              :key="task.id"
-              clickable
-              @click="selectTask(task)"
-            >
-              <template #title>
-                <div class="task-cell">
-                  <span class="task-name">{{ task.name }}</span>
-                  <span class="task-meta">{{ categoryNames[task.category] }}</span>
-                </div>
-              </template>
-              <template #right-icon>
-                <van-radio :name="task.id" />
-              </template>
-            </van-cell>
-          </van-cell-group>
-        </van-radio-group>
-        <van-empty v-if="tasks.length === 0" description="暂无任务，去创建一个吧" />
+        
+        <div class="picker-list">
+          <div 
+            v-for="task in tasks" 
+            :key="task.id"
+            class="picker-item"
+            :class="{ active: currentTask?.id === task.id }"
+            @click="selectTask(task)"
+          >
+            <div class="picker-item-content">
+              <div class="picker-item-name">{{ task.name }}</div>
+              <div class="picker-item-meta">{{ categoryNames[task.category] }} · {{ task.completedPomodoros || 0 }}/{{ task.estimatedPomodoros }} 番茄</div>
+            </div>
+            <van-icon name="success" v-if="currentTask?.id === task.id" class="check-icon" />
+          </div>
+          <van-empty v-if="tasks.length === 0" description="还没有任务，去创建一个吧" />
+        </div>
       </div>
     </van-popup>
   </div>
@@ -179,26 +211,42 @@ const categoryNames = {
 const settings = ref({ workDuration: 25, shortBreak: 5, longBreak: 15, longBreakInterval: 4 })
 const currentTask = ref(null)
 const tasks = ref([])
-const selectedTaskId = ref(null)
 
 const isRunning = ref(false)
 const isPaused = ref(false)
 const isRest = ref(false)
 const showRest = ref(false)
 const showTaskPicker = ref(false)
+const showSettings = ref(false)
 const timeLeft = ref(25 * 60)
 const currentPomodoro = ref(0)
+const todayPomodoros = ref(0)
 
 let timerInterval = null
 let defaultTime = 25 * 60
+const circumference = 2 * Math.PI * 90
 
-const progress = computed(() => {
+const currentDate = computed(() => {
+  const date = new Date()
+  const options = { month: 'long', day: 'numeric', weekday: 'long' }
+  return date.toLocaleDateString('zh-CN', options)
+})
+
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 12) return '早上好，准备好学习了吗？'
+  if (hour < 18) return '下午好，继续加油！'
+  return '晚上好，保持专注！'
+})
+
+const progressOffset = computed(() => {
   const total = isRest.value 
     ? (currentPomodoro.value % settings.value.longBreakInterval === 0 
       ? settings.value.longBreak 
       : settings.value.shortBreak) * 60
     : settings.value.workDuration * 60
-  return ((total - timeLeft.value) / total) * 100
+  const progress = (total - timeLeft.value) / total
+  return circumference * (1 - progress)
 })
 
 const timeDisplay = computed(() => {
@@ -230,14 +278,8 @@ const loadTasks = async () => {
 
 const selectTask = (task) => {
   currentTask.value = task
-  selectedTaskId.value = task.id
   showTaskPicker.value = false
   showToast(`已选择: ${task.name}`)
-}
-
-const clearCurrentTask = () => {
-  currentTask.value = null
-  selectedTaskId.value = null
 }
 
 const goCreateTask = () => {
@@ -291,15 +333,14 @@ const skipRest = () => {
   startTimer()
 }
 
-const completePhase = async () => {
+const completePhase = () => {
   clearInterval(timerInterval)
   isRunning.value = false
 
   if (!isRest.value) {
-    // Work completed
     currentPomodoro.value++
+    todayPomodoros.value++
     
-    // Save record
     if (currentTask.value) {
       try {
         recordsAPI.create({
@@ -311,17 +352,14 @@ const completePhase = async () => {
           recordDate: new Date().toISOString().split('T')[0]
         })
         
-        // Update task
         const newCount = (currentTask.value.completedPomodoros || 0) + 1
-        await tasksAPI.update(currentTask.value.id, {
+        tasksAPI.update(currentTask.value.id, {
           completedPomodoros: newCount
         })
         currentTask.value.completedPomodoros = newCount
         
-        // Reload tasks to sync data
         loadTasks()
         
-        // Auto complete if done
         if (newCount >= currentTask.value.estimatedPomodoros) {
           showNotify({ type: 'success', message: '🎉 任务完成！' })
         }
@@ -330,15 +368,12 @@ const completePhase = async () => {
       }
     }
 
-    // Notification
     if (Notification.permission === 'granted') {
       new Notification('番茄完成！', { body: '工作时段结束，该休息了~' })
     }
 
-    // Sound
     playNotificationSound()
 
-    // Enter rest
     const isLongBreak = currentPomodoro.value % settings.value.longBreakInterval === 0
     const restDuration = isLongBreak ? settings.value.longBreak : settings.value.shortBreak
     timeLeft.value = restDuration * 60
@@ -347,7 +382,6 @@ const completePhase = async () => {
     
     startRestTimer()
   } else {
-    // Rest completed
     showRest.value = false
     isRest.value = false
     timeLeft.value = settings.value.workDuration * 60
@@ -379,10 +413,6 @@ const playNotificationSound = () => {
   } catch (e) {}
 }
 
-const openGame = (type) => {
-  showToast(`即将开放 ${type} 游戏`)
-}
-
 onMounted(async () => {
   try {
     const res = await settingsAPI.get()
@@ -405,190 +435,264 @@ onUnmounted(() => {
 <style scoped>
 .timer-page {
   min-height: 100vh;
-  background: #0f172a;
+  background: linear-gradient(180deg, #F7F8FA 0%, #FFFFFF 100%);
   padding: 20px;
   padding-bottom: 100px;
 }
 
-.current-task-card {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+/* Header */
+.page-header {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.date-display {
+  font-size: 14px;
+  color: #999999;
+  margin-bottom: 4px;
+}
+
+.greeting {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1F1F1F;
+}
+
+/* Task Card */
+.task-card {
+  background: linear-gradient(135deg, #5B8FF9 0%, #14C4E4 100%);
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 24px;
+  cursor: pointer;
+}
+
+.task-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 .task-badge {
   font-size: 12px;
-  opacity: 0.8;
-  margin-bottom: 8px;
+  background: rgba(255,255,255,0.25);
+  padding: 2px 10px;
+  border-radius: 10px;
+  color: white;
 }
 
-.current-task-card .task-name {
+.task-category {
+  font-size: 12px;
+  color: rgba(255,255,255,0.8);
+}
+
+.task-card-title {
   font-size: 20px;
   font-weight: 600;
-  margin-bottom: 12px;
-}
-
-.task-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  color: white;
   margin-bottom: 16px;
 }
 
-.tag {
-  font-size: 12px;
-  background: rgba(255,255,255,0.2);
-  padding: 2px 8px;
-  border-radius: 8px;
+.task-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-.progress-text {
-  font-size: 12px;
+.pomodoro-progress {
+  font-size: 14px;
+  color: white;
+}
+
+.pomodoro-progress .current {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.pomodoro-progress .separator,
+.pomodoro-progress .unit {
   opacity: 0.8;
+  margin: 0 2px;
 }
 
-.task-selector {
+/* No Task State */
+.no-task-card {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
   margin-bottom: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
-.hint-text {
-  font-size: 12px;
-  color: #94a3b8;
+.no-task-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
 }
 
-.timer-wrapper {
+.no-task-text {
+  font-size: 16px;
+  color: #666666;
+  margin-bottom: 16px;
+}
+
+/* Timer Section */
+.timer-section {
   display: flex;
   justify-content: center;
-  margin-bottom: 32px;
+  margin: 32px 0;
 }
 
-.timer-circle {
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  background: conic-gradient(#6366f1 var(--progress), #334155 0%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.timer-ring {
   position: relative;
+  width: 240px;
+  height: 240px;
 }
 
-.timer-inner {
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: #1e293b;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+.timer-ring.is-rest .progress-ring-progress {
+  stroke: #6DD400 !important;
+}
+
+.progress-ring {
+  width: 100%;
+  height: 100%;
+}
+
+.progress-ring-progress {
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.timer-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
 }
 
 .timer-time {
   font-size: 48px;
   font-weight: 700;
+  color: #1F1F1F;
   font-variant-numeric: tabular-nums;
-  color: #f8fafc;
+  letter-spacing: 2px;
 }
 
 .timer-label {
   margin-top: 8px;
 }
 
-.pomodoro-count {
-  font-size: 14px;
-  color: #94a3b8;
-  margin-top: 8px;
+.pomodoro-badge {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #999999;
 }
 
+/* Controls */
 .timer-controls {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  margin-bottom: 20px;
+  text-align: center;
+  padding: 0 20px;
 }
 
-.timer-controls .van-button {
-  flex: 1;
+.control-btn {
+  height: 56px !important;
+  font-size: 18px !important;
+  font-weight: 600;
 }
 
-.quick-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  margin-bottom: 24px;
+.start-btn {
+  background: linear-gradient(135deg, #5B8FF9 0%, #14C4E4 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(91, 143, 249, 0.4);
 }
 
+.pause-btn {
+  background: white !important;
+  border: 2px solid #E8F0FE !important;
+}
+
+.secondary-btns {
+  margin-top: 12px;
+}
+
+.secondary-btns .van-button {
+  color: #999999;
+}
+
+/* Settings Card */
 .settings-card {
-  margin-top: 20px;
+  margin-top: 32px;
 }
 
+/* Rest Popup */
 .rest-popup {
   padding: 32px 24px;
   text-align: center;
 }
 
 .rest-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
-.rest-icon {
-  font-size: 32px;
+.rest-emoji {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 12px;
 }
 
 .rest-title {
   font-size: 24px;
-  color: #10b981;
   font-weight: 600;
+  color: #1F1F1F;
+  margin-bottom: 4px;
 }
 
-.rest-timer {
+.rest-subtitle {
+  font-size: 14px;
+  color: #999999;
+}
+
+.rest-timer-display {
   font-size: 56px;
   font-weight: 700;
-  color: #f8fafc;
+  color: #6DD400;
   margin: 24px 0;
+  font-variant-numeric: tabular-nums;
 }
 
-.rest-tips {
+.rest-activities {
   display: flex;
   justify-content: center;
   gap: 16px;
-  color: #94a3b8;
-  font-size: 14px;
   margin-bottom: 24px;
 }
 
-.rest-games {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-  margin-bottom: 24px;
-}
-
-.game-btn {
+.activity-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 16px 24px;
-  background: #1e293b;
+  gap: 6px;
+  padding: 12px 16px;
+  background: #F7F8FA;
   border-radius: 12px;
-  cursor: pointer;
 }
 
-.game-icon {
-  font-size: 28px;
+.activity-icon {
+  font-size: 24px;
 }
 
+.activity-name {
+  font-size: 12px;
+  color: #666666;
+}
+
+/* Task Picker */
 .task-picker {
   max-height: 60vh;
   overflow-y: auto;
-  padding: 16px;
+  padding: 20px;
 }
 
 .picker-header {
@@ -596,21 +700,48 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+}
+
+.picker-title {
   font-size: 18px;
   font-weight: 600;
 }
 
-.task-cell {
+.picker-list {
   display: flex;
   flex-direction: column;
+  gap: 8px;
 }
 
-.task-cell .task-name {
-  color: #f8fafc;
+.picker-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #F7F8FA;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.task-cell .task-meta {
+.picker-item.active {
+  background: linear-gradient(135deg, rgba(91, 143, 249, 0.1) 0%, rgba(20, 196, 228, 0.1) 100%);
+  border: 1px solid #5B8FF9;
+}
+
+.picker-item-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1F1F1F;
+}
+
+.picker-item-meta {
   font-size: 12px;
-  color: #94a3b8;
+  color: #999999;
+  margin-top: 4px;
+}
+
+.check-icon {
+  color: #5B8FF9;
 }
 </style>
