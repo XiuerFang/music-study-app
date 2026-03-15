@@ -1,6 +1,11 @@
 <template>
   <div class="stats-page">
-    <h1>数据统计</h1>
+    <div class="header">
+      <h1>数据统计</h1>
+      <van-button size="small" round @click="loadStats">
+        <van-icon name="refresh" /> 刷新
+      </van-button>
+    </div>
 
     <div class="stats-grid">
       <div class="stat-card">
@@ -32,6 +37,27 @@
       <van-cell title="分类统计" />
       <div class="chart-container">
         <canvas ref="categoryChartRef"></canvas>
+      </div>
+    </van-cell-group>
+
+    <!-- Recent Records -->
+    <van-cell-group inset>
+      <van-cell title="最近记录" />
+      <div class="records-list">
+        <van-cell 
+          v-for="record in recentRecords" 
+          :key="record.id"
+          :title="record.taskName"
+          :label="categoryNames[record.category] || record.category"
+        >
+          <template #value>
+            <div class="record-info">
+              <span>{{ record.duration }}分钟</span>
+              <span class="record-date">{{ formatDate(record.recordDate) }}</span>
+            </div>
+          </template>
+        </van-cell>
+        <van-empty v-if="recentRecords.length === 0" description="暂无学习记录" :image-size="60" />
       </div>
     </van-cell-group>
 
@@ -72,8 +98,16 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed, nextTick } from 'vue'
-import { showToast } from 'vant'
+import { showToast, showLoading, hideLoading } from 'vant'
 import { recordsAPI } from '../api'
+
+const categoryNames = {
+  'music-history': '🎼 音乐历史',
+  'singing': '🎤 演唱练习',
+  'improvisation': '🎹 即兴伴奏',
+  'teaching': '📚 教学试讲',
+  'training': '💪 辅助训练'
+}
 
 const stats = reactive({
   totalPomodoros: 0,
@@ -84,6 +118,7 @@ const stats = reactive({
   weekData: []
 })
 
+const recentRecords = ref([])
 const weekChartRef = ref(null)
 const categoryChartRef = ref(null)
 const showCalendar = ref(false)
@@ -120,14 +155,34 @@ const calendarDays = computed(() => {
   return days
 })
 
+const formatDate = (dateStr) => {
+  const date = new Date(dateStr)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  
+  if (dateStr === today.toISOString().split('T')[0]) return '今天'
+  if (dateStr === yesterday.toISOString().split('T')[0]) return '昨天'
+  return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
 const loadStats = async () => {
+  showLoading({ message: '加载中...', forbidClick: true })
   try {
     const res = await recordsAPI.getStats()
     Object.assign(stats, res)
+    
+    // Load recent records
+    const recordsRes = await recordsAPI.getAll({ limit: 10 })
+    recentRecords.value = recordsRes.records
+    
     await nextTick()
     renderCharts()
   } catch (e) {
     showToast('加载失败')
+    console.error(e)
+  } finally {
+    hideLoading()
   }
 }
 
@@ -163,10 +218,10 @@ const nextMonth = () => {
 const renderCharts = () => {
   if (!weekChartRef.value || !stats.weekData?.length) return
   
-  // Simple week chart rendering (would use Chart.js in production)
+  // Week chart
   const ctx = weekChartRef.value.getContext('2d')
   const width = weekChartRef.value.width = weekChartRef.value.offsetWidth
-  const height = weekChartRef.value.height = 150
+  const height = weekChartRef.value.height = 120
   
   ctx.clearRect(0, 0, width, height)
   
@@ -179,20 +234,25 @@ const renderCharts = () => {
     const y = height - barHeight - 20
     
     ctx.fillStyle = '#6366f1'
-    ctx.fillRect(x, y, barWidth, barHeight)
+    ctx.beginPath()
+    ctx.roundRect(x, y, barWidth, barHeight, 4)
+    ctx.fill()
     
     ctx.fillStyle = '#94a3b8'
-    ctx.font = '12px sans-serif'
+    ctx.font = '11px sans-serif'
     ctx.textAlign = 'center'
     ctx.fillText(d.day, x + barWidth / 2, height - 5)
+    if (d.count > 0) {
+      ctx.fillText(d.count, x + barWidth / 2, y - 5)
+    }
   })
 
   // Category chart
   if (!categoryChartRef.value) return
   const catCtx = categoryChartRef.value.getContext('2d')
   const catWidth = categoryChartRef.value.width = categoryChartRef.value.offsetWidth
-  const catHeight = categoryChartRef.value.height = 150
-  const radius = Math.min(catWidth, catHeight) / 2 - 20
+  const catHeight = categoryChartRef.value.height = 120
+  const radius = Math.min(catWidth, catHeight) / 2 - 15
   const centerX = catWidth / 2
   const centerY = catHeight / 2
   
@@ -201,6 +261,19 @@ const renderCharts = () => {
   const categories = Object.keys(stats.categoryStats)
   const total = Object.values(stats.categoryStats).reduce((a, b) => a + b, 0) || 1
   const colors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#ef4444']
+  
+  if (categories.length === 0) {
+    catCtx.fillStyle = '#334155'
+    catCtx.beginPath()
+    catCtx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+    catCtx.fill()
+    catCtx.fillStyle = '#94a3b8'
+    catCtx.font = '14px sans-serif'
+    catCtx.textAlign = 'center'
+    catCtx.fillText('暂无数据', centerX, centerY)
+    return
+  }
+  
   let startAngle = -Math.PI / 2
   
   categories.forEach((cat, i) => {
@@ -231,10 +304,17 @@ onMounted(() => {
   padding-bottom: 80px;
 }
 
-.stats-page h1 {
-  font-size: 20px;
-  color: #f8fafc;
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
+}
+
+.stats-page h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #f8fafc;
 }
 
 .stats-grid {
@@ -252,7 +332,7 @@ onMounted(() => {
 }
 
 .stat-value {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
   color: #6366f1;
 }
@@ -265,12 +345,29 @@ onMounted(() => {
 
 .chart-container {
   padding: 12px;
-  height: 150px;
+  height: 120px;
 }
 
 .chart-container canvas {
   width: 100%;
   height: 100%;
+}
+
+.records-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.record-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 12px;
+}
+
+.record-date {
+  color: #94a3b8;
+  font-size: 11px;
 }
 
 .calendar-popup {

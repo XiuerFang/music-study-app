@@ -313,10 +313,13 @@ const completePhase = () => {
         
         // Update task
         const newCount = (currentTask.value.completedPomodoros || 0) + 1
-        tasksAPI.update(currentTask.value.id, {
+        await tasksAPI.update(currentTask.value.id, {
           completedPomodoros: newCount
         })
         currentTask.value.completedPomodoros = newCount
+        
+        // Reload tasks to sync data
+        loadTasks()
         
         // Auto complete if done
         if (newCount >= currentTask.value.estimatedPomodoros) {
