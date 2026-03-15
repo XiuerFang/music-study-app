@@ -291,7 +291,7 @@ const skipRest = () => {
   startTimer()
 }
 
-const completePhase = () => {
+const completePhase = async () => {
   clearInterval(timerInterval)
   isRunning.value = false
 
