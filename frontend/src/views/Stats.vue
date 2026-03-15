@@ -119,7 +119,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed, nextTick } from 'vue'
-import { showToast, showLoading, hideLoading } from 'vant'
+import { showToast, closeToast, showFailToast } from 'vant'
 import { recordsAPI } from '../api'
 
 const categoryNames = {
@@ -195,7 +195,7 @@ const formatDate = (dateStr) => {
 }
 
 const loadStats = async () => {
-  showLoading({ message: '加载中...', forbidClick: true })
+  showToast({ message: '加载中...', forbidClick: true, duration: 0 })
   try {
     const res = await recordsAPI.getStats()
     Object.assign(stats, res)
@@ -209,7 +209,7 @@ const loadStats = async () => {
     showToast('加载失败')
     console.error(e)
   } finally {
-    hideLoading()
+    closeToast()
   }
 }
 

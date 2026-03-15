@@ -4,16 +4,44 @@
       "id": 1773580879513,
       "username": "休二",
       "passwordHash": "$2a$10$0rhlT42z49pkv7HBmJh6oeXsknZ5c5i89ExPOdo0Ttto75tr.nSMC",
-      "nickname": "休二",
+      "nickname": "张天赐啊",
       "role": "user",
       "createdAt": "2026-03-15T13:21:19.513Z"
+    },
+    {
+      "id": 1773583627262,
+      "username": "胡天才",
+      "passwordHash": "$2a$10$VzoiT63Zzi5Kd5MLnWJ8helz7F5TX3iks7HueT71xkoiPTTUR3OYS",
+      "nickname": "Tiancai Hu",
+      "role": "user",
+      "createdAt": "2026-03-15T14:07:07.262Z"
     }
   ],
-  "tasks": [],
+  "tasks": [
+    {
+      "id": 1773583657922,
+      "userId": 1773580879513,
+      "name": "测试",
+      "category": "music-history",
+      "estimatedPomodoros": 55,
+      "completedPomodoros": 0,
+      "notes": "",
+      "completed": false,
+      "createdAt": "2026-03-15T14:07:37.922Z",
+      "updatedAt": "2026-03-15T14:07:37.922Z"
+    }
+  ],
   "records": [],
   "settings": [
     {
       "userId": 1773580879513,
+      "workDuration": 25,
+      "shortBreak": 5,
+      "longBreak": 15,
+      "longBreakInterval": 4
+    },
+    {
+      "userId": 1773583627262,
       "workDuration": 25,
       "shortBreak": 5,
       "longBreak": 15,
