@@ -1,0 +1,24 @@
+{
+  "users": [
+    {
+      "id": 1773580879513,
+      "username": "休二",
+      "passwordHash": "$2a$10$0rhlT42z49pkv7HBmJh6oeXsknZ5c5i89ExPOdo0Ttto75tr.nSMC",
+      "nickname": "休二",
+      "role": "user",
+      "createdAt": "2026-03-15T13:21:19.513Z"
+    }
+  ],
+  "tasks": [],
+  "records": [],
+  "settings": [
+    {
+      "userId": 1773580879513,
+      "workDuration": 25,
+      "shortBreak": 5,
+      "longBreak": 15,
+      "longBreakInterval": 4
+    }
+  ],
+  "gameScores": []
+}
