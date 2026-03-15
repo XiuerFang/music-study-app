@@ -168,20 +168,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { showToast, showNotify } from 'vant'
 import { settingsAPI, recordsAPI, tasksAPI } from '../api'
 
-// 莫兰迪色系
-const colors = {
-  primary: '#5B8FF9',
-  primaryEnd: '#14C4E4',
-  success: '#6DD400',
-  warning: '#FF8F00',
-  danger: '#F04844',
-  bg: '#F7F8FA',
-  card: '#FFFFFF',
-  text: '#1F1F1F',
-  text2: '#666666',
-  text3: '#999999',
-  border: '#EEEEEE'
-}
+const categoryNames = {
   'music-history': '🎼 音乐历史',
   'singing': '🎤 演唱练习',
   'improvisation': '🎹 即兴伴奏',
