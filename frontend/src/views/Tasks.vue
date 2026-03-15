@@ -1,14 +1,15 @@
 <template>
   <div class="tasks-page">
-    <div class="header">
-      <h1>学习任务</h1>
+    <!-- Header -->
+    <div class="page-header">
+      <div class="page-title">学习任务</div>
       <van-button type="primary" size="small" round @click="showAdd = true">
         <van-icon name="plus" /> 新建
       </van-button>
     </div>
 
     <!-- Category Tabs -->
-    <van-tabs v-model:active="activeTab" @change="loadTasks" swipeable>
+    <van-tabs v-model:active="activeTab" @change="loadTasks" swipeable animated>
       <van-tab title="全部" name="all" />
       <van-tab title="🎼" name="music-history" />
       <van-tab title="🎤" name="singing" />
@@ -19,26 +20,43 @@
 
     <!-- Task List -->
     <div class="task-list">
-      <van-swipe-cell v-for="task in tasks" :key="task.id">
-        <div class="task-card" @click="selectTask(task)">
+      <div 
+        v-for="task in tasks" 
+        :key="task.id"
+        class="task-card"
+        :class="{ completed: task.completed }"
+      >
+        <div class="task-card-inner" @click="editTask(task)">
           <div class="task-header">
-            <span class="category-tag">{{ categoryNames[task.category] }}</span>
-            <van-tag v-if="task.completed" type="success" size="small">已完成</van-tag>
+            <van-tag :type="getCategoryType(task.category)" size="small" round>
+              {{ categoryNames[task.category] }}
+            </van-tag>
+            <van-icon 
+              v-if="task.completed" 
+              name="success" 
+              class="completed-icon" 
+              color="#6DD400"
+            />
           </div>
           
           <div class="task-name">{{ task.name }}</div>
           
-          <div class="task-progress">
+          <div class="task-progress-section">
             <van-progress 
               :percentage="getProgress(task)" 
-              :stroke-width="8" 
+              :stroke-width="6" 
               :show-pivot="false"
               :color="getProgressColor(task)"
-              track-color="#334155"
+              track-color="#E8F0FE"
             />
             <div class="progress-info">
-              <span>{{ task.completedPomodoros || 0 }} / {{ task.estimatedPomodoros }} 番茄</span>
-              <span>{{ getProgress(task) }}%</span>
+              <span class="progress-text">
+                <span class="completed-count">{{ task.completedPomodoros || 0 }}</span>
+                <span class="separator">/</span>
+                <span class="total-count">{{ task.estimatedPomodoros }}</span>
+                <span class="unit">番茄</span>
+              </span>
+              <span class="progress-percent">{{ getProgress(task) }}%</span>
             </div>
           </div>
 
@@ -46,30 +64,27 @@
             {{ task.notes }}
           </div>
         </div>
-        
-        <template #right>
-          <div class="swipe-actions">
-            <van-button 
-              square 
-              type="primary" 
-              text="编辑" 
-              @click.stop="editTask(task)" 
-            />
-            <van-button 
-              square 
-              :type="task.completed ? 'default' : 'success'" 
-              :text="task.completed ? '重做' : '完成'" 
-              @click.stop="toggleComplete(task)" 
-            />
-            <van-button 
-              square 
-              type="danger" 
-              text="删除" 
-              @click.stop="deleteTask(task.id)" 
-            />
-          </div>
-        </template>
-      </van-swipe-cell>
+
+        <div class="task-actions">
+          <van-button 
+            size="small" 
+            round 
+            :type="task.completed ? 'default' : 'success'"
+            @click.stop="toggleComplete(task)"
+          >
+            {{ task.completed ? '重做' : '完成' }}
+          </van-button>
+          <van-button 
+            size="small" 
+            round 
+            type="danger"
+            plain
+            @click.stop="deleteTask(task.id)"
+          >
+            删除
+          </van-button>
+        </div>
+      </div>
 
       <van-empty v-if="tasks.length === 0" description="还没有任务，点击右上角创建一个">
         <template #image>
@@ -105,7 +120,7 @@
               @click="showCategory = true"
             >
               <template #input>
-                <span>{{ categoryNames[form.category] || '请选择' }}</span>
+                <span class="category-display">{{ categoryNames[form.category] || '请选择' }}</span>
               </template>
             </van-field>
             
@@ -117,7 +132,7 @@
               placeholder="需要多少个25分钟？"
             >
               <template #extra>
-                <span class="extra-hint">🍅</span>
+                <span class="tomato-icon">🍅</span>
               </template>
             </van-field>
             
@@ -190,6 +205,17 @@ const form = reactive({
   notes: ''
 })
 
+const getCategoryType = (category) => {
+  const types = {
+    'music-history': 'primary',
+    'singing': 'warning',
+    'improvisation': 'danger',
+    'teaching': 'default',
+    'training': 'success'
+  }
+  return types[category] || 'primary'
+}
+
 const getProgress = (task) => {
   if (!task.estimatedPomodoros) return 0
   return Math.round(((task.completedPomodoros || 0) / task.estimatedPomodoros) * 100)
@@ -197,9 +223,9 @@ const getProgress = (task) => {
 
 const getProgressColor = (task) => {
   const progress = getProgress(task)
-  if (progress >= 100) return '#10b981'
-  if (progress >= 50) return '#f59e0b'
-  return '#6366f1'
+  if (progress >= 100) return '#6DD400'
+  if (progress >= 50) return '#FF8F00'
+  return 'linear-gradient(90deg, #5B8FF9, #14C4E4)'
 }
 
 const loadTasks = async () => {
@@ -265,10 +291,6 @@ const toggleComplete = async (task) => {
   }
 }
 
-const selectTask = (task) => {
-  showToast(`开始学习: ${task.name}`)
-}
-
 const onSelectCategory = (action) => {
   form.category = action.value
   showCategory.value = false
@@ -291,21 +313,22 @@ onMounted(() => {
 <style scoped>
 .tasks-page {
   min-height: 100vh;
-  background: #0f172a;
+  background: #F7F8FA;
   padding-bottom: 80px;
 }
 
-.header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20px;
+  background: white;
 }
 
-.header h1 {
+.page-title {
   font-size: 24px;
   font-weight: 600;
-  color: #f8fafc;
+  color: #1F1F1F;
 }
 
 .task-list {
@@ -313,56 +336,82 @@ onMounted(() => {
 }
 
 .task-card {
-  background: #1e293b;
-  border-radius: 12px;
-  padding: 16px;
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
   margin-bottom: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.task-card.completed {
+  opacity: 0.7;
 }
 
 .task-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
-.category-tag {
-  font-size: 12px;
-  color: #94a3b8;
+.completed-icon {
+  font-size: 20px;
 }
 
 .task-name {
   font-size: 18px;
-  font-weight: 500;
-  color: #f8fafc;
-  margin-bottom: 12px;
+  font-weight: 600;
+  color: #1F1F1F;
+  margin-bottom: 16px;
 }
 
-.task-progress {
-  margin-bottom: 8px;
+.task-progress-section {
+  margin-bottom: 12px;
 }
 
 .progress-info {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  color: #94a3b8;
-  margin-top: 6px;
+  color: #999999;
+  margin-top: 8px;
+}
+
+.progress-text .completed-count {
+  font-size: 18px;
+  font-weight: 600;
+  color: #5B8FF9;
+}
+
+.progress-text .separator {
+  margin: 0 2px;
+}
+
+.progress-text .unit {
+  margin-left: 4px;
 }
 
 .task-notes {
   font-size: 13px;
-  color: #64748b;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #334155;
+  color: #999999;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #F0F0F0;
 }
 
-.swipe-actions {
+.task-actions {
   display: flex;
-  height: 100%;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #F0F0F0;
 }
 
+.task-actions .van-button {
+  flex: 1;
+}
+
+/* Form */
 .task-form {
   padding: 20px;
 }
@@ -382,7 +431,7 @@ onMounted(() => {
 .form-tips {
   padding: 12px 16px;
   font-size: 13px;
-  color: #94a3b8;
+  color: #999999;
 }
 
 .form-actions {
@@ -395,7 +444,11 @@ onMounted(() => {
   flex: 1;
 }
 
-.extra-hint {
+.category-display {
+  color: #1F1F1F;
+}
+
+.tomato-icon {
   font-size: 16px;
 }
 </style>

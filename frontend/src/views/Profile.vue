@@ -1,38 +1,76 @@
 <template>
   <div class="profile-page">
-    <h1>个人中心</h1>
+    <!-- Profile Header -->
+    <div class="profile-header">
+      <div class="avatar-wrapper">
+        <div class="avatar">{{ userInitial }}</div>
+      </div>
+      <div class="profile-info">
+        <div class="username">{{ user?.username || '用户' }}</div>
+        <div class="nickname" v-if="user?.nickname">{{ user.nickname }}</div>
+      </div>
+    </div>
 
-    <van-cell-group inset>
-      <van-cell title="头像" is-link>
-        <template #default>
-          <div class="avatar">{{ user?.nickname?.[0] || user?.username?.[0] || '?' }}</div>
-        </template>
-      </van-cell>
-      <van-cell title="用户名" :value="user?.username" />
-      <van-cell title="昵称" :value="user?.nickname || '未设置'" is-link @click="showNickname = true" />
-    </van-cell-group>
+    <!-- Menu Groups -->
+    <div class="menu-section">
+      <div class="menu-title">账号信息</div>
+      <div class="menu-group">
+        <div class="menu-item" @click="showNickname = true">
+          <span class="menu-icon">✏️</span>
+          <span class="menu-text">修改昵称</span>
+          <span class="menu-value">{{ user?.nickname || '未设置' }}</span>
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" @click="showPassword = true">
+          <span class="menu-icon">🔒</span>
+          <span class="menu-text">修改密码</span>
+          <span class="menu-arrow">›</span>
+        </div>
+      </div>
+    </div>
 
-    <van-cell-group inset>
-      <van-cell title="修改密码" is-link @click="showPassword = true" />
-      <van-cell title="番茄设置" is-link @click="showSettings = true" />
-    </van-cell-group>
+    <div class="menu-section">
+      <div class="menu-title">番茄设置</div>
+      <div class="menu-group">
+        <div class="menu-item" @click="showSettings = true">
+          <span class="menu-icon">⏱️</span>
+          <span class="menu-text">番茄计时设置</span>
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" @click="showGames = true">
+          <span class="menu-icon">🎮</span>
+          <span class="menu-text">游戏记录</span>
+          <span class="menu-arrow">›</span>
+        </div>
+      </div>
+    </div>
 
-    <van-cell-group inset>
-      <van-cell title="游戏记录" is-link @click="showGames = true" />
-    </van-cell-group>
+    <div class="menu-section">
+      <div class="menu-title">关于</div>
+      <div class="menu-group">
+        <div class="menu-item">
+          <span class="menu-icon">ℹ️</span>
+          <span class="menu-text">版本</span>
+          <span class="menu-value">v1.0.0</span>
+        </div>
+      </div>
+    </div>
 
-    <div class="logout-btn">
-      <van-button type="danger" block @click="logout">退出登录</van-button>
+    <!-- Logout -->
+    <div class="logout-section">
+      <van-button type="danger" block round size="large" @click="logout">
+        退出登录
+      </van-button>
     </div>
 
     <!-- Nickname Modal -->
-    <van-popup v-model:show="showNickname" position="bottom">
+    <van-popup v-model:show="showNickname" position="bottom" round>
       <div class="modal">
         <div class="modal-title">修改昵称</div>
         <van-cell-group inset>
           <van-field v-model="nickname" placeholder="请输入新昵称" />
         </van-cell-group>
-        <div class="modal-btn">
+        <div class="modal-actions">
           <van-button @click="showNickname = false">取消</van-button>
           <van-button type="primary" @click="updateNickname">保存</van-button>
         </div>
@@ -40,14 +78,14 @@
     </van-popup>
 
     <!-- Password Modal -->
-    <van-popup v-model:show="showPassword" position="bottom">
+    <van-popup v-model:show="showPassword" position="bottom" round>
       <div class="modal">
         <div class="modal-title">修改密码</div>
         <van-cell-group inset>
           <van-field v-model="oldPassword" type="password" placeholder="旧密码" />
           <van-field v-model="newPassword" type="password" placeholder="新密码" />
         </van-cell-group>
-        <div class="modal-btn">
+        <div class="modal-actions">
           <van-button @click="showPassword = false">取消</van-button>
           <van-button type="primary" @click="updatePassword">保存</van-button>
         </div>
@@ -55,16 +93,16 @@
     </van-popup>
 
     <!-- Settings Modal -->
-    <van-popup v-model:show="showSettings" position="bottom">
+    <van-popup v-model:show="showSettings" position="bottom" round>
       <div class="modal">
         <div class="modal-title">番茄设置</div>
         <van-cell-group inset>
-          <van-field v-model.number="tempSettings.workDuration" type="digit" label="工作时长(分钟)" />
-          <van-field v-model.number="tempSettings.shortBreak" type="digit" label="短休息(分钟)" />
-          <van-field v-model.number="tempSettings.longBreak" type="digit" label="长休息(分钟)" />
-          <van-field v-model.number="tempSettings.longBreakInterval" type="digit" label="长休息间隔" />
+          <van-field v-model.number="tempSettings.workDuration" type="digit" label="工作时长" suffix="分钟" />
+          <van-field v-model.number="tempSettings.shortBreak" type="digit" label="短休息" suffix="分钟" />
+          <van-field v-model.number="tempSettings.longBreak" type="digit" label="长休息" suffix="分钟" />
+          <van-field v-model.number="tempSettings.longBreakInterval" type="digit" label="长休息间隔" suffix="个番茄" />
         </van-cell-group>
-        <div class="modal-btn">
+        <div class="modal-actions">
           <van-button @click="showSettings = false">取消</van-button>
           <van-button type="primary" @click="updateSettings">保存</van-button>
         </div>
@@ -72,17 +110,15 @@
     </van-popup>
 
     <!-- Games Modal -->
-    <van-popup v-model:show="showGames" position="bottom">
+    <van-popup v-model:show="showGames" position="bottom" round>
       <div class="modal">
         <div class="modal-title">游戏记录</div>
         <van-cell-group inset>
-          <van-cell title="2048" :value="gameScores['2048']?.score || '暂无'" />
-          <van-cell title="贪吃蛇" :value="gameScores['snake']?.score || '暂无'" />
-          <van-cell title="打砖块" :value="gameScores['brick']?.score || '暂无'" />
+          <van-cell title="🎮 2048" :value="gameScores['2048']?.score || '暂无记录'" />
+          <van-cell title="🐍 贪吃蛇" :value="gameScores['snake']?.score || '暂无记录'" />
+          <van-cell title="🧱 打砖块" :value="gameScores['brick']?.score || '暂无记录'" />
         </van-cell-group>
-        <div class="modal-btn">
-          <van-button block @click="showGames = false">关闭</van-button>
-        </div>
+        <van-button block round @click="showGames = false" style="margin-top: 20px;">关闭</van-button>
       </div>
     </van-popup>
   </div>
@@ -99,6 +135,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const user = computed(() => authStore.user)
+const userInitial = computed(() => (user.value?.nickname || user.value?.username || '?')[0].toUpperCase())
 
 const showNickname = ref(false)
 const showPassword = ref(false)
@@ -190,36 +227,116 @@ onMounted(() => {
 <style scoped>
 .profile-page {
   min-height: 100vh;
-  background: #0f172a;
+  background: #F7F8FA;
   padding: 20px;
-  padding-bottom: 80px;
+  padding-bottom: 100px;
 }
 
-.profile-page h1 {
-  font-size: 20px;
-  color: #f8fafc;
-  margin-bottom: 20px;
+/* Profile Header */
+.profile-header {
+  background: linear-gradient(135deg, #5B8FF9 0%, #14C4E4 100%);
+  border-radius: 20px;
+  padding: 32px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.avatar-wrapper {
+  flex-shrink: 0;
 }
 
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  background: #6366f1;
+  background: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  font-size: 28px;
   font-weight: 600;
+  color: #5B8FF9;
 }
 
-.logout-btn {
-  margin-top: 40px;
-  padding: 20px;
+.profile-info {
+  flex: 1;
 }
 
+.username {
+  font-size: 22px;
+  font-weight: 600;
+  color: white;
+}
+
+.nickname {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 4px;
+}
+
+/* Menu Section */
+.menu-section {
+  margin-bottom: 16px;
+}
+
+.menu-title {
+  font-size: 13px;
+  color: #999999;
+  padding: 8px 12px;
+}
+
+.menu-group {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #F0F0F0;
+  cursor: pointer;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-icon {
+  font-size: 20px;
+  margin-right: 12px;
+}
+
+.menu-text {
+  flex: 1;
+  font-size: 16px;
+  color: #1F1F1F;
+}
+
+.menu-value {
+  font-size: 14px;
+  color: #999999;
+  margin-right: 8px;
+}
+
+.menu-arrow {
+  font-size: 18px;
+  color: #CCCCCC;
+}
+
+/* Logout */
+.logout-section {
+  margin-top: 32px;
+  padding: 0 20px;
+}
+
+/* Modal */
 .modal {
-  padding: 20px;
+  padding: 24px;
 }
 
 .modal-title {
@@ -229,13 +346,13 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-.modal-btn {
+.modal-actions {
   display: flex;
   gap: 12px;
   margin-top: 20px;
 }
 
-.modal-btn .van-button {
+.modal-actions .van-button {
   flex: 1;
 }
 </style>
