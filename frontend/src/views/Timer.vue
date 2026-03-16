@@ -224,6 +224,10 @@ const todayPomodoros = ref(0)
 
 let timerInterval = null
 let defaultTime = 25 * 60
+
+// 计时器持久化：用开始时间戳计算，确保切后台后时间准确
+let timerStartTime = null  // 计时器开始时的 timestamp
+let timerPausedAt = null   // 暂停时的剩余秒数（用于恢复）
 const circumference = 2 * Math.PI * 90
 
 const currentDate = computed(() => {
@@ -296,12 +300,29 @@ const startTimer = () => {
   isRunning.value = true
   isPaused.value = false
   
+  // 记录开始时间戳，用于切后台后恢复
+  timerStartTime = Date.now()
+  
   timerInterval = setInterval(() => {
-    timeLeft.value--
+    // 用当前时间 - 开始时间 计算已经过去的秒数
+    const elapsedSeconds = Math.floor((Date.now() - timerStartTime) / 1000)
+    const totalSeconds = isRest.value 
+      ? (currentPomodoro.value % settings.value.longBreakInterval === 0 
+          ? settings.value.longBreak 
+          : settings.value.shortBreak) * 60
+      : settings.value.workDuration * 60
+    
+    // 如果是暂停后恢复，需要加上暂停时的剩余时间
+    const startTimeLeft = timerPausedAt !== null ? timerPausedAt : totalSeconds
+    timeLeft.value = Math.max(0, startTimeLeft - elapsedSeconds)
+    
     if (timeLeft.value <= 0) {
       completePhase()
     }
   }, 1000)
+
+  // 清除暂停记录
+  timerPausedAt = null
 
   if (Notification.permission === 'default') {
     Notification.requestPermission()
@@ -310,6 +331,9 @@ const startTimer = () => {
 
 const pauseTimer = () => {
   clearInterval(timerInterval)
+  // 暂停时记录当前剩余秒数
+  timerPausedAt = timeLeft.value
+  timerStartTime = null  // 清除开始时间
   isPaused.value = true
   isRunning.value = false
 }
@@ -323,6 +347,9 @@ const resetTimer = () => {
   timeLeft.value = settings.value.workDuration * 60
   defaultTime = settings.value.workDuration * 60
   currentPomodoro.value = 0
+  // 清除计时器状态
+  timerStartTime = null
+  timerPausedAt = null
 }
 
 const skipRest = () => {
@@ -336,6 +363,9 @@ const skipRest = () => {
 const completePhase = () => {
   clearInterval(timerInterval)
   isRunning.value = false
+  // 清除计时器状态
+  timerStartTime = null
+  timerPausedAt = null
 
   if (!isRest.value) {
     currentPomodoro.value++
@@ -413,6 +443,73 @@ const playNotificationSound = () => {
   } catch (e) {}
 }
 
+// 保存计时器状态到 localStorage
+const saveTimerState = () => {
+  if (isRunning.value || isPaused.value) {
+    const state = {
+      timeLeft: timeLeft.value,
+      isRest: isRest.value,
+      isPaused: isPaused.value,
+      isRunning: isRunning.value,
+      currentPomodoro: currentPomodoro.value,
+      currentTaskId: currentTask.value?.id,
+      timerStartTime: timerStartTime,
+      timerPausedAt: timerPausedAt,
+      savedAt: Date.now()
+    }
+    localStorage.setItem('pomodoroState', JSON.stringify(state))
+  }
+}
+
+// 从 localStorage 恢复计时器状态
+const restoreTimerState = () => {
+  const saved = localStorage.getItem('pomodoroState')
+  if (!saved) return false
+  
+  try {
+    const state = JSON.parse(saved)
+    const now = Date.now()
+    const elapsed = Math.floor((now - state.savedAt) / 1000)
+    
+    // 如果计时器正在运行，需要计算切后台期间过去的时间
+    if (state.isRunning && state.timerStartTime) {
+      const totalSeconds = state.isRest 
+        ? (state.currentPomodoro % settings.value.longBreakInterval === 0 
+            ? settings.value.longBreak 
+            : settings.value.shortBreak) * 60
+        : settings.value.workDuration * 60
+      
+      // 用保存时的时间和当前时间差来恢复
+      const startTimeLeft = state.timeLeft
+      timeLeft.value = Math.max(0, startTimeLeft - elapsed)
+      timerStartTime = Date.now() - elapsed * 1000  // 调整开始时间
+      timerPausedAt = null
+      isRest.value = state.isRest
+      currentPomodoro.value = state.currentPomodoro
+      
+      if (timeLeft.value > 0) {
+        isRunning.value = true
+        startTimer()
+        return true
+      }
+    } else if (state.isPaused) {
+      // 暂停状态直接恢复
+      timeLeft.value = state.timeLeft
+      isRest.value = state.isRest
+      isPaused.value = true
+      currentPomodoro.value = state.currentPomodoro
+      timerPausedAt = state.timerPausedAt
+      return true
+    }
+  } catch (e) {
+    console.error('Restore timer state error:', e)
+  }
+  
+  // 清理保存的状态
+  localStorage.removeItem('pomodoroState')
+  return false
+}
+
 onMounted(async () => {
   try {
     const res = await settingsAPI.get()
@@ -423,12 +520,28 @@ onMounted(async () => {
     console.error('Load settings error:', e)
   }
   loadTasks()
+  
+  // 尝试恢复之前保存的计时器状态
+  restoreTimerState()
+  
+  // 监听页面可见性变化，保存状态
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      saveTimerState()
+    }
+  })
+  
+  // 页面卸载前保存状态
+  window.addEventListener('beforeunload', saveTimerState)
 })
 
 onUnmounted(() => {
   if (timerInterval) {
     clearInterval(timerInterval)
   }
+  // 清理事件监听器
+  document.removeEventListener('visibilitychange', saveTimerState)
+  window.removeEventListener('beforeunload', saveTimerState)
 })
 </script>
 
